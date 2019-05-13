@@ -2,7 +2,6 @@
 .metals/
 .idea/
 BUILD
-modules/client/src/main/resources/application.conf
-modules/server/src/main/resources/application.conf
 target/
+project/target
 WORKSPACE
