@@ -16,13 +16,14 @@ import ExecutionContext.Implicits.global
 // https://homepages.thm.de/~hg51/Veranstaltungen/NVP/Folien/nvp-12.pdf
 
 object TcpFutureServer_Main extends App {
-  val ECHO_PORT = 4713
+  val PORT = 4713
+  val ADDRESS = "127.0.0.1"
   val asynchronousServerSocketChannel = AsynchronousServerSocketChannel.open()
   if (!asynchronousServerSocketChannel.isOpen()) {
     System.err.println("can to open channel"); System.exit(-1);
   }
   asynchronousServerSocketChannel.bind(
-    new InetSocketAddress("127.0.0.1", ECHO_PORT)
+    new InetSocketAddress(ADDRESS, PORT)
   );
   println("Server ready Waiting for connections");
 
