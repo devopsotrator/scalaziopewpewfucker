@@ -1,12 +1,14 @@
 import java.io.IOException;
+
 import java.net.InetSocketAddress;
+
 import java.nio.{ByteBuffer, CharBuffer}
 import java.nio.channels.{
   AsynchronousServerSocketChannel,
   AsynchronousSocketChannel
 }
-
 import java.nio.charset.Charset;
+
 import scala.concurrent._
 import ExecutionContext.Implicits.global
 
@@ -23,6 +25,7 @@ object TcpFutureServer_Main extends App {
     new InetSocketAddress("127.0.0.1", ECHO_PORT)
   );
   println("Server ready Waiting for connections");
+
   while (true) {
     val asynchronousSocketChannelFuture =
       asynchronousServerSocketChannel.accept();
@@ -38,6 +41,7 @@ object TcpFutureServer_Main extends App {
         i = i + 1
         val fnr = asynchronousSocketChannel.read(buffer)
         val bytesRead = fnr.get()
+
         if (bytesRead < 0) {
           println("Read " + bytesRead + " Bytes: STOP")
           loop = false
@@ -45,12 +49,15 @@ object TcpFutureServer_Main extends App {
           println("Server has read " + bytesRead + " Bytes")
           buffer.flip();
           val charBuffer = Charset.defaultCharset().newDecoder().decode(buffer)
+
           println("Server received from Client : " + charBuffer.toString());
+
           if (buffer.hasRemaining()) {
             buffer.compact();
           } else {
             buffer.clear();
           }
+
           println("Server will send back to Client: " + charBuffer.toString());
           buffer.put((charBuffer.toString() + "\n").getBytes());
           val fnw = asynchronousSocketChannel.write(
