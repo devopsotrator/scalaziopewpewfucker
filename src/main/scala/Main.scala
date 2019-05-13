@@ -17,10 +17,10 @@ object TcpFutureServer_Main extends App {
   val ECHO_PORT = 4713
   val asynchronousServerSocketChannel = AsynchronousServerSocketChannel.open()
   if (!asynchronousServerSocketChannel.isOpen()) {
-  System.err.println("can to open channel"); System.exit(-1);
+    System.err.println("can to open channel"); System.exit(-1);
   }
   asynchronousServerSocketChannel.bind(
-  new InetSocketAddress("127.0.0.1", ECHO_PORT)
+    new InetSocketAddress("127.0.0.1", ECHO_PORT)
   );
   println("Server ready Waiting for connections");
   while (true) {
@@ -35,7 +35,7 @@ object TcpFutureServer_Main extends App {
       var i: Int = 0
       var loop = true
       while (loop) {
-        i = i+1
+        i = i + 1
         val fnr = asynchronousSocketChannel.read(buffer)
         val bytesRead = fnr.get()
         if (bytesRead < 0) {
@@ -52,8 +52,10 @@ object TcpFutureServer_Main extends App {
             buffer.clear();
           }
           println("Server will send back to Client: " + charBuffer.toString());
-          buffer.put((charBuffer.toString()+"\n").getBytes());
-          val fnw = asynchronousSocketChannel.write(ByteBuffer.wrap((charBuffer.toString()+"\n").getBytes()));
+          buffer.put((charBuffer.toString() + "\n").getBytes());
+          val fnw = asynchronousSocketChannel.write(
+            ByteBuffer.wrap((charBuffer.toString() + "\n").getBytes())
+          );
           println("Server send back " + fnw.get() + " Bytes");
           println("Server try again reading");
         }
