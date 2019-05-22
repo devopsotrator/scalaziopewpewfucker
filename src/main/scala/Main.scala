@@ -1,7 +1,10 @@
 import java.net.InetSocketAddress
 
 import java.nio.ByteBuffer
-import java.nio.channels.{AsynchronousServerSocketChannel, AsynchronousSocketChannel}
+import java.nio.channels.{
+  AsynchronousServerSocketChannel,
+  AsynchronousSocketChannel
+}
 import java.nio.charset.Charset
 
 import scala.concurrent._
@@ -14,46 +17,47 @@ import scodec.DecodeResult
 import utils.Commands
 import utils.Codecs
 
-
 object Main extends App {
-    val server = AsynchronousServerSocketChannel
-        .open
-        .bind(new InetSocketAddress("127.0.0.1", 4713))
+  val server = AsynchronousServerSocketChannel.open
+    .bind(new InetSocketAddress("127.0.0.1", 4713))
 
-    println("Server ready")
+  println("Server ready")
 
-    while (true) {
-        val client = server.accept.get
+  while (true) {
+    val client = server.accept.get
 
-        Future {
-            val clientHost = client.getRemoteAddress.toString
+    Future {
+      val clientHost = client.getRemoteAddress.toString
 
-            println(s"Incoming connection from: $clientHost")
+      println(s"Incoming connection from: $clientHost")
 
-            val buffer = ByteBuffer.allocateDirect(256)
-            var loop = true
+      val buffer = ByteBuffer.allocateDirect(256)
+      var loop = true
 
-            while (loop) {
-                val bytesRead = client.read(buffer).get
+      while (loop) {
+        val bytesRead = client.read(buffer).get
 
-                if (bytesRead < 0) {
-                    println(s"Read $bytesRead Bytes: STOP")
-                    loop = false
-                } else {
-                    println(s"Server has read $bytesRead Bytes")
-                    
-                    buffer.flip
+        if (bytesRead < 0) {
+          println(s"Read $bytesRead Bytes: STOP")
+          loop = false
+        } else {
+          println(s"Server has read $bytesRead Bytes")
 
-                    parse(buffer, client)
-                }
-            }
+          buffer.flip
 
-            println(s"Server: Connection to $clientHost will be closed")
-            client.close
+          parse(buffer, client)
         }
-    }
+      }
 
-private def parse(byteBuffer: ByteBuffer, client: AsynchronousSocketChannel): Unit = {
+      println(s"Server: Connection to $clientHost will be closed")
+      client.close
+    }
+  }
+
+  private def parse(
+      byteBuffer: ByteBuffer,
+      client: AsynchronousSocketChannel
+  ): Unit = {
     val buffer = ByteVector.apply(byteBuffer)
 
     buffer.slice(0, 4) match {
@@ -64,24 +68,26 @@ private def parse(byteBuffer: ByteBuffer, client: AsynchronousSocketChannel): Un
         val q = 7
         val server_public_key_fingerprints = 1L
 
-        val res_pq = Codecs
-            .ResPQCodec
-            .encode(
-                Commands.ResPQValue ->
-                nonce ->
-                server_nonce ->
-                p ->
-                q ->
-                server_public_key_fingerprints
-            )
-            .getOrElse(throw new IllegalStateException("Something goes wrong"))
-           .toByteBuffer
+        val res_pq = Codecs.ResPQCodec
+          .encode(
+            Commands.ResPQValue ->
+              nonce ->
+              server_nonce ->
+              p ->
+              q ->
+              server_public_key_fingerprints
+          )
+          .getOrElse(throw new IllegalStateException("Something goes wrong"))
+          .toByteBuffer
 
         client.write(res_pq)
       }
 
       case Commands.ReqDHParamsValue => {
-        println(s"Server: Connection to ${client.getRemoteAddress.toString} will be closed")
+        println(
+          s"Server: Connection to ${client.getRemoteAddress.toString} will be closed"
+        )
+
         client.close
       }
 
