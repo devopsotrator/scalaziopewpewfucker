@@ -1,75 +1,93 @@
-import java.io.IOException;
+import java.net.InetSocketAddress
 
-import java.net.InetSocketAddress;
-
-import java.nio.{ByteBuffer, CharBuffer}
-import java.nio.channels.{
-  AsynchronousServerSocketChannel,
-  AsynchronousSocketChannel
-}
-import java.nio.charset.Charset;
+import java.nio.ByteBuffer
+import java.nio.channels.{AsynchronousServerSocketChannel, AsynchronousSocketChannel}
+import java.nio.charset.Charset
 
 import scala.concurrent._
 import ExecutionContext.Implicits.global
 
-// source
-// https://homepages.thm.de/~hg51/Veranstaltungen/NVP/Folien/nvp-12.pdf
+import scodec.bits.ByteVector
+import scodec.Attempt.{Failure, Successful}
+import scodec.DecodeResult
 
-object TcpFutureServer_Main extends App {
-  val PORT = 4713
-  val ADDRESS = "127.0.0.1"
-  val asynchronousServerSocketChannel = AsynchronousServerSocketChannel.open()
-  if (!asynchronousServerSocketChannel.isOpen()) {
-    System.err.println("can to open channel"); System.exit(-1);
-  }
-  asynchronousServerSocketChannel.bind(
-    new InetSocketAddress(ADDRESS, PORT)
-  );
-  println("Server ready Waiting for connections");
+import utils.Commands
+import utils.Codecs
 
-  while (true) {
-    val asynchronousSocketChannelFuture =
-      asynchronousServerSocketChannel.accept();
-    val asynchronousSocketChannel = asynchronousSocketChannelFuture.get();
 
-    Future {
-      val host = asynchronousSocketChannel.getRemoteAddress().toString();
-      println("Incoming connection from: " + host)
-      val buffer = ByteBuffer.allocateDirect(32)
-      var i: Int = 0
-      var loop = true
-      while (loop) {
-        i = i + 1
-        val fnr = asynchronousSocketChannel.read(buffer)
-        val bytesRead = fnr.get()
+object Main extends App {
+    val server = AsynchronousServerSocketChannel
+        .open
+        .bind(new InetSocketAddress("127.0.0.1", 4713))
 
-        if (bytesRead < 0) {
-          println("Read " + bytesRead + " Bytes: STOP")
-          loop = false
-        } else {
-          println("Server has read " + bytesRead + " Bytes")
-          buffer.flip();
-          val charBuffer = Charset.defaultCharset().newDecoder().decode(buffer)
+    println("Server ready")
 
-          println("Server received from Client : " + charBuffer.toString());
+    while (true) {
+        val client = server.accept.get
 
-          if (buffer.hasRemaining()) {
-            buffer.compact();
-          } else {
-            buffer.clear();
-          }
+        Future {
+            val clientHost = client.getRemoteAddress.toString
 
-          println("Server will send back to Client: " + charBuffer.toString());
-          buffer.put((charBuffer.toString() + "\n").getBytes());
-          val fnw = asynchronousSocketChannel.write(
-            ByteBuffer.wrap((charBuffer.toString() + "\n").getBytes())
-          );
-          println("Server send back " + fnw.get() + " Bytes");
-          println("Server try again reading");
+            println(s"Incoming connection from: $clientHost")
+
+            val buffer = ByteBuffer.allocateDirect(256)
+            var loop = true
+
+            while (loop) {
+                val bytesRead = client.read(buffer).get
+
+                if (bytesRead < 0) {
+                    println(s"Read $bytesRead Bytes: STOP")
+                    loop = false
+                } else {
+                    println(s"Server has read $bytesRead Bytes")
+                    
+                    buffer.flip
+
+                    parse(buffer, client)
+                }
+            }
+
+            println(s"Server: Connection to $clientHost will be closed")
+            client.close
         }
+    }
+
+private def parse(byteBuffer: ByteBuffer, client: AsynchronousSocketChannel): Unit = {
+    val buffer = ByteVector.apply(byteBuffer)
+
+    buffer.slice(0, 4) match {
+      case Commands.ReqPQValue => {
+        val nonce = ByteVector.low(16)
+        val server_nonce = ByteVector.low(16)
+        val p = 7
+        val q = 7
+        val server_public_key_fingerprints = 1L
+
+        val res_pq = Codecs
+            .ResPQCodec
+            .encode(
+                Commands.ResPQValue ->
+                nonce ->
+                server_nonce ->
+                p ->
+                q ->
+                server_public_key_fingerprints
+            )
+            .getOrElse(throw new IllegalStateException("Something goes wrong"))
+           .toByteBuffer
+
+        client.write(res_pq)
       }
-      println("Server: Connection to " + host + " will be closed");
-      asynchronousSocketChannel.close();
+
+      case Commands.ReqDHParamsValue => {
+        println(s"Server: Connection to ${client.getRemoteAddress.toString} will be closed")
+        client.close
+      }
+
+      case _ => {
+        println("Unable to recognize received command")
+      }
     }
   }
 }
